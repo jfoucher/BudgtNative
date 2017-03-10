@@ -1,0 +1,28 @@
+{
+  "name": "BudgtNative",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node node_modules/react-native/local-cli/cli.js start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "md5": "^2.2.1",
+    "moment": "^2.17.1",
+    "pouchdb-react-native": "^6.1.26",
+    "react": "15.4.2",
+    "react-native": "0.42.0",
+    "react-native-cached-image": "^1.2.5",
+    "react-native-color-picker": "^0.2.1",
+    "react-native-material-ui": "^1.8.0"
+  },
+  "devDependencies": {
+    "babel-jest": "19.0.0",
+    "babel-preset-react-native": "1.9.1",
+    "jest": "19.0.2",
+    "react-test-renderer": "15.4.2"
+  },
+  "jest": {
+    "preset": "react-native"
+  }
+}
