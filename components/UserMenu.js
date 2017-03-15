@@ -35,7 +35,7 @@ class UserMenu extends Component {
     }
 
     shouldComponentUpdate(nextProps, nextState){
-        if(this.props.user === nextProps.user) {
+        if(this.props.user === nextProps.user && this.state.menuShown === nextState.menuShown) {
             return false;
         }
         return true;
