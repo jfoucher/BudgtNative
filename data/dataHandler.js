@@ -88,7 +88,11 @@ export const getCategoriesForTime = (transactions, time) => {
         other.categories.push(c);
         return false;
     });
-    cats.push(other);
+    if(cats.length && other.amount > 0) {
+        //Only add "other" category if there are more categories to display and the amount is positive
+        cats.push(other);
+    }
+
 
 
     return {categories: cats, total: total};
