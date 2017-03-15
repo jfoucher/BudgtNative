@@ -12,16 +12,16 @@ const styles = StyleSheet.create({
         justifyContent:'center',
         alignItems: 'center',
         flex:1,
+        elevation: 5,
         position: 'absolute',
         top:70,
         left:0,
         right:0,
-        bottom:0
-        //zIndex: 50
+        bottom:0,
     },
     dialog: {
         //width:200,
-        elevation: 2,
+        elevation: 6,
         shadowColor: "#000",
         shadowOpacity: 0.4,
         shadowRadius: 3,
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         right:-400,
         backgroundColor: '#000',
-        opacity: 0.6
+        opacity: 0.6,
     }
 });
 
@@ -83,10 +83,6 @@ class AnimatedDialog extends Component {
                     </Animated.View>
                 </TouchableWithoutFeedback>
                 {this.props.inner}
-
-
-
-
             </Animated.View>
 
         )
