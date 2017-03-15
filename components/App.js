@@ -56,7 +56,8 @@ class App extends Component {
             currentCategory: false,
             currentDate: moment().format('YYYYMM'),
             categoryColumnOpen: true,
-            colorPickerOpen: false
+            colorPickerOpen: false,
+            colorPickerCategory: false
         }
     }
 
@@ -204,7 +205,10 @@ class App extends Component {
         //    this.getCategoryTransactions(this.state.currentCategory)
         //}
         //this.changeDate();
-        this.setState({transactions: transactions, categories: categories, currentCategory: category, displayCategories: getCategoriesForTime(transactions, this.state.currentDate)});
+        if(category.name == this.state.currentCategory.name) {
+            this.setState({currentCategory: category});
+        }
+        this.setState({transactions: transactions, categories: categories, displayCategories: getCategoriesForTime(transactions, this.state.currentDate)});
     }
 
 
@@ -546,7 +550,7 @@ class App extends Component {
 
     render() {
 
-        console.log('Render App');
+        console.log('Render App', this.state.displayCategories.categories);
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
 
         const logo = require('../images/logo.png');
@@ -589,14 +593,14 @@ class App extends Component {
                         open={this.state.categoryColumnOpen}
                         />
                     {this.state.currentCategory.categories ? null: <Animated.View style={{backgroundColor:'transparent', position:'absolute', top:70, right:0, width:48, height:48, opacity: this.state.categoryColumnOpen ? 0: 1}}>
-                        <IconToggle onPress={()=>{this.setState({colorPickerOpen: !this.state.colorPickerOpen})}}><Icon name='color-lens' color={getTextColor(shadeColor(this.state.currentCategory.color, (this.state.transactionsForCategory&&this.state.transactionsForCategory.transactions&&this.state.transactionsForCategory.transactions.length > 1 ? -0.2 : 0)))} /></IconToggle>
+                        <IconToggle onPress={()=>{this.setState({colorPickerCategory: this.state.currentCategory,colorPickerOpen: !this.state.colorPickerOpen})}}><Icon name='color-lens' color={getTextColor(shadeColor(this.state.currentCategory.color, ((this.state.transactionsForCategory&&this.state.transactionsForCategory.transactions&&this.state.transactionsForCategory.transactions.length > 1) || this.state.displayCategories.categories.length === 1 ? -0.2 : 0)))} /></IconToggle>
                     </Animated.View>}
 
                     <ActionButton onPress={this.toggleTransactionForm}/>
                     <CategoryColorPicker
                         open={this.state.colorPickerOpen}
                         updateCategoryColor={this.updateCategoryColor}
-                        currentCategory={this.state.currentCategory}
+                        currentCategory={this.state.colorPickerCategory}
                         />
                     <NewDrawer
                         user={this.state.user}
