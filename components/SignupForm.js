@@ -6,7 +6,8 @@ import {
     Animated,
     TouchableWithoutFeedback,
     TextInput,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import Container from './Container'
 import Spinner from './Spinner'
@@ -23,6 +24,7 @@ class SignupForm extends Component {
         super(props);
         this.state= {
             email: '',
+            name: '',
             focusedInput: 'none',
             loginError: false,
             submitting: false,
@@ -35,7 +37,9 @@ class SignupForm extends Component {
         if (newProps.show !== this.props.show) {
             console.log('form is hiding, unfocus fields');
             this.refs.email.blur();
+            this.refs.name.blur();
             this.refs.password.blur();
+            this.refs.name.blur();
         }
     }
 
@@ -51,7 +55,7 @@ class SignupForm extends Component {
         if(pressed == 'Cancel') {
             return this.props.toggle.call(this);
         }
-        const promise = this.props.action.call(this, {email: this.state.email, password: this.state.password}, pressed);
+        const promise = this.props.action.call(this, {name: this.state.name, email: this.state.email, password: this.state.password}, pressed);
         if(!promise) {
             return;
         }
@@ -70,6 +74,7 @@ class SignupForm extends Component {
 
 
     render() {
+        console.log('render SignupForm');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
         var focusColor = primaryColor;
         var blurColor = "#ccc";
@@ -81,7 +86,7 @@ class SignupForm extends Component {
         return (
 
 
-            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={70}>
+            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={Platform.OS === 'ios' ? 70: -200}>
 
                 <Dialog>
 
@@ -93,6 +98,7 @@ class SignupForm extends Component {
                         <TextInput
                             ref='email'
                             style={{height: 35}}
+                            underlineColorAndroid='transparent'
                             onChangeText={(text) => this.setState({email: text})}
                             autoCorrect={false}
                             autoCapitalize='none'
@@ -105,12 +111,29 @@ class SignupForm extends Component {
                             />
                         </View>
                         <View style={{height:25}}></View>
+                        <Text style={{color: '#666'}}>FULL NAME</Text>
+                        <View style={{height: 35, borderBottomColor: (this.state.focusedInput === 'name' ? focusColor : blurColor), borderBottomWidth: 2}}>
+                        <TextInput
+                            ref='name'
+                            style={{height: 35}}
+                            underlineColorAndroid='transparent'
+                            onChangeText={(text) => this.setState({name: text})}
+                            autoCorrect={false}
+                            placeholder='John Doe'
+                            onFocus={() => {this.setState({focusedInput: 'name'})}}
+                            onBlur={(a) => {this.setState({focusedInput: 'none', name: a.nativeEvent.text})}}
+                            returnKeyType='go'
+                            onSubmitEditing={this.signup}
+                            />
+                        </View>
+                        <View style={{height:25}}></View>
                         <Text style={{color: '#666'}}>PASSWORD</Text>
                         <View style={{height: 35, borderBottomColor: (this.state.focusedInput === 'password' ? focusColor : blurColor), borderBottomWidth: 2}}>
                         <TextInput
                             ref='password'
                             secureTextEntry={true}
                             style={{height: 35}}
+                            underlineColorAndroid='transparent'
                             onChangeText={(text) => this.setState({password: text})}
                             placeholder='password'
                             autoCorrect={false}

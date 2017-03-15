@@ -6,7 +6,8 @@ import {
     Animated,
     TouchableWithoutFeedback,
     TextInput,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import Container from './Container'
 import Spinner from './Spinner'
@@ -70,6 +71,7 @@ class LoginForm extends Component {
 
 
     render() {
+        console.log('render LoginForm');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
         var focusColor = primaryColor;
         var blurColor = "#ccc";
@@ -81,7 +83,7 @@ class LoginForm extends Component {
         return (
 
 
-            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={70}>
+            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={Platform.OS === 'ios' ? 70: -200}>
 
                 <Dialog>
 
@@ -90,19 +92,20 @@ class LoginForm extends Component {
 
                         <Text style={{color: '#666'}}>EMAIL</Text>
                         <View style={{height: 35, borderBottomColor: (this.state.focusedInput === 'email' ? focusColor : blurColor), borderBottomWidth: 2}}>
-                        <TextInput
-                            ref='email'
-                            style={{height: 35}}
-                            onChangeText={(text) => this.setState({email: text})}
-                            autoCorrect={false}
-                            autoCapitalize='none'
-                            keyboardType='email-address'
-                            placeholder='your@email.com'
-                            onFocus={() => {this.setState({focusedInput: 'email'})}}
-                            onBlur={(a) => {this.setState({focusedInput: 'none', email: a.nativeEvent.text})}}
-                            returnKeyType='go'
-                            onSubmitEditing={this.login}
-                            />
+                            <TextInput
+                                ref='email'
+                                style={{height: 35}}
+                                onChangeText={(text) => this.setState({email: text})}
+                                autoCorrect={false}
+                                autoCapitalize='none'
+                                keyboardType='email-address'
+                                placeholder='your@email.com'
+                                underlineColorAndroid='transparent'
+                                onFocus={() => {this.setState({focusedInput: 'email'})}}
+                                onBlur={(a) => {this.setState({focusedInput: 'none', email: a.nativeEvent.text})}}
+                                returnKeyType='go'
+                                onSubmitEditing={this.login}
+                                />
                         </View>
                         <View style={{height:25}}></View>
                         <Text style={{color: '#666'}}>PASSWORD</Text>
@@ -114,6 +117,7 @@ class LoginForm extends Component {
                             onChangeText={(text) => this.setState({password: text})}
                             placeholder='password'
                             autoCorrect={false}
+                            underlineColorAndroid='transparent'
                             onFocus={() => {this.setState({focusedInput: 'password'})}}
                             onBlur={(a) => {this.setState({focusedInput: 'none', password: a.nativeEvent.text})}}
                             returnKeyType='go'

@@ -6,7 +6,9 @@ import {
     Animated,
     TouchableWithoutFeedback,
     TextInput,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView
 } from 'react-native';
 import Container from './Container'
 import Spinner from './Spinner'
@@ -34,7 +36,7 @@ class TransactionForm extends Component {
 
     componentWillReceiveProps(newProps) {
         //console.log('login form will get new props', newProps, this.props);
-        if (newProps.show !== this.props.show) {
+        if (!newProps.show && this.props.show) {
             console.log('form is hiding, unfocus fields');
             this.refs.item.blur();
             this.refs.amount.blur();
@@ -54,7 +56,11 @@ class TransactionForm extends Component {
         if(pressed == 'Cancel') {
             return this.props.toggle.call(this);
         }
-        const promise = this.props.action.call(this, {amount: this.state.amount, item: this.state.item, category: this.state.category}, pressed);
+
+        const data = {amount: this.state.amount, item: this.state.item, category: this.state.category};
+        console.log(data);
+
+        const promise = this.props.action.call(this, data);
         if(!promise) {
             return;
         }
@@ -68,14 +74,15 @@ class TransactionForm extends Component {
             //this.toggleForm();
             this.spinnerAnimation(1, () => {this.setState({submitting: false});});
 
-        }).catch(() => {
+        }).catch((e) => {
             this.spinnerAnimation(1, () => {this.setState({loginError: true, submitting: false})});
-        })
+        });
 
     }
 
 
     render() {
+        console.log('render TransactionForm');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
         var focusColor = primaryColor;
         var blurColor = "#ccc";
@@ -86,8 +93,7 @@ class TransactionForm extends Component {
 
         return (
 
-
-            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={70}>
+            <KeyboardAvoidingView behavior='position' keyboardVerticalOffset={Platform.OS === 'ios' ? 70: -200}>
 
                 <Dialog>
 
@@ -103,9 +109,10 @@ class TransactionForm extends Component {
                             autoCorrect={false}
                             autoCapitalize='none'
                             keyboardType='numeric'
+                            underlineColorAndroid='transparent'
                             placeholder='20.00'
                             onFocus={() => {this.setState({focusedInput: 'amount'})}}
-                            onBlur={(a) => {this.setState({focusedInput: 'none', amount: a.nativeEvent.text})}}
+                            //onBlur={(a) => {console.log('amount blurred', a.nativeEvent); this.setState({focusedInput: 'none', amount: a.nativeEvent.text})}}
                             returnKeyType='go'
                             onSubmitEditing={this.action}
                             />
@@ -118,9 +125,10 @@ class TransactionForm extends Component {
                             style={{height: 35}}
                             onChangeText={(text) => this.setState({item: text})}
                             autoCorrect={false}
+                            underlineColorAndroid='transparent'
                             placeholder='Lunch'
                             onFocus={() => {this.setState({focusedInput: 'item'})}}
-                            onBlur={(a) => {this.setState({focusedInput: 'none', item: a.nativeEvent.text})}}
+                            //onBlur={(a) => {console.log('item blurred', a.nativeEvent); this.setState({focusedInput: 'none', item: a.nativeEvent.text})}}
                             returnKeyType='go'
                             onSubmitEditing={this.action}
                             />
@@ -133,9 +141,10 @@ class TransactionForm extends Component {
                             style={{height: 35}}
                             onChangeText={(text) => this.setState({category: text})}
                             autoCorrect={false}
+                            underlineColorAndroid='transparent'
                             placeholder='Restaurant'
                             onFocus={() => {this.setState({focusedInput: 'category'})}}
-                            onBlur={(a) => {this.setState({focusedInput: 'none', category: a.nativeEvent.text})}}
+                            //onBlur={(a) => {console.log('category blurred', a); this.setState({focusedInput: 'none', category: a.nativeEvent.text})}}
                             returnKeyType='go'
                             onSubmitEditing={this.action}
                             />
@@ -150,7 +159,6 @@ class TransactionForm extends Component {
                     {this.state.submitting ?
                         <Animated.View style={{opacity: this.state.spinnerOpacity, backgroundColor: 'rgba(0,0,0,0.4)', position:'absolute', top: 0, left: 0, bottom: 0, right: 0, flex:1, justifyContent:'center', alignItems: 'center'}}><Spinner size={80} /></Animated.View> : null}
                 </Dialog>
-
             </KeyboardAvoidingView>
         )
     }

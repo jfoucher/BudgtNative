@@ -14,17 +14,17 @@ const styles = StyleSheet.create({
     drawer: {
         flex: 1,
         elevation: 4,
-        width: 260,
-        backgroundColor: '#FF5555',
-        shadowColor: "#000",
-        shadowOpacity: 0.4,
-        shadowRadius: 4,
-        shadowOffset:{width: 4, height: 0},
+        //width: 260,
+        //backgroundColor:'transparent',
+        //shadowColor: "#000",
+        //shadowOpacity: 0.4,
+        //shadowRadius: 4,
+        //shadowOffset:{width: 4, height: 0},
         position: 'absolute',
         left:     0,
         top:      70,
         bottom: 0,
-        //zIndex: 50
+        right:-2000
     },
     menu: {
         elevation: 2,
@@ -100,6 +100,8 @@ class NewDrawer extends Component {
 
     render() {
 
+        console.log('Render NewDrawer');
+
         const sections = this.props.months.map((y, i) => {
             var yearTransactions = 0;
             const year = moment(y[0], 'YYYYMM').format('YYYY');
@@ -140,11 +142,17 @@ class NewDrawer extends Component {
                 {
                     transform:[
                         {
-                            translateX: this.state.drawerAnim.interpolate({inputRange: [0, 1], outputRange: [-280, 0]})
+                            translateX: this.state.drawerAnim.interpolate({inputRange: [0,0.0001, 1], outputRange: [-3000,-280, 0]})
                         }
                     ]
                 }
                 ]}>
+                <TouchableWithoutFeedback onPress={this.props.toggleDrawer}>
+
+                    <Animated.View style={{position:'absolute', top: 0, left: 0, width: 800, bottom:0, opacity: this.state.drawerAnim.interpolate({inputRange: [0, 1], outputRange: [0, 0.6]}), backgroundColor: "#000", transform:[{translateX: this.state.drawerAnim.interpolate({inputRange: [0, 1], outputRange: [0, 0]})}]}}>
+                    </Animated.View>
+                </TouchableWithoutFeedback>
+                <View style={{flex:1, width: 260}}>
                 <Drawer>
                     <UserMenu
                         user={this.props.user}
@@ -169,11 +177,8 @@ class NewDrawer extends Component {
 
                     </Drawer.Body>
                 </Drawer>
-                <TouchableWithoutFeedback onPress={this.props.toggleDrawer}>
+                </View>
 
-                    <Animated.View style={{position:'absolute', top: 0, left: 260, right:-480, bottom:0, opacity: this.state.drawerAnim.interpolate({inputRange: [0, 1], outputRange: [0, 0.6]}), backgroundColor: "#000", transform:[{translateX: this.state.drawerAnim.interpolate({inputRange: [0, 0.01, 1], outputRange: [-800, 0, 0]})}]}}>
-                    </Animated.View>
-                </TouchableWithoutFeedback>
             </Animated.View>
             );
 

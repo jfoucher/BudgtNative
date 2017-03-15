@@ -26,6 +26,21 @@ const styles = StyleSheet.create({
 
 class UserMenu extends Component {
 
+    constructor(props) {
+        super(props);
+        this.state = {
+            menuShown: false,
+            menuArrow: 'arrow-drop-down'
+        }
+    }
+
+    shouldComponentUpdate(nextProps, nextState){
+        if(this.props.user === nextProps.user) {
+            return false;
+        }
+        return true;
+    }
+
     toggleMenu = () => {
 
         const nextAnimValue = this.state.menuShown ? 0 : 110;
@@ -42,16 +57,9 @@ class UserMenu extends Component {
     }
 
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            menuShown: false,
-            menuArrow: 'arrow-drop-down'
-        }
-    }
-
 
     render() {
+        console.log('render UserMenu');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
 
         const img = <Image source={require('../images/bg.png')} />;

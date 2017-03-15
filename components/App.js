@@ -7,28 +7,29 @@ import {
     Image,
     Navigator, NativeModules, StatusBar,
     TouchableWithoutFeedback,
-    Animated
+    Animated,
+    Platform
 } from 'react-native';
 
+import CategoryColorPicker from './CategoryColorPicker'
 import LoginForm from './LoginForm'
 import SignupForm from './SignupForm'
 import TransactionForm from './TransactionForm'
 import MainUi from './MainUi'
 import Container from './Container'
 import NewDrawer from './NewDrawer'
-import AnimatedDrawer from './AnimatedDrawer'
 import AnimatedDialog from './AnimatedDialog'
-import { ActionButton, Toolbar } from 'react-native-material-ui';
+import { ActionButton, Toolbar, Icon, IconToggle } from 'react-native-material-ui';
 import {getCategoriesForTime, getTransactionsForCategoryAndTime, getAvailableMonths, getNumberOfTransactionsByMonth} from '../data/dataHandler'
 import PouchDB from 'pouchdb-react-native'
 import moment from 'moment'
 import md5 from 'md5'
-import {guid} from '../utils'
+import {guid, getRandomColor, getTextColor, shadeColor} from '../utils'
 
-const db = new PouchDB('Budgt6');
+
+const db = new PouchDB('Budgt');
 var sync = false;
-
-
+//db.destroy();
 
 //get all transactions and subscribe.
 
@@ -55,6 +56,7 @@ class App extends Component {
             currentCategory: false,
             currentDate: moment().format('YYYYMM'),
             categoryColumnOpen: true,
+            colorPickerOpen: false
         }
     }
 
@@ -72,6 +74,12 @@ class App extends Component {
         console.log('show transaction form');
         this.setState({showTransactionDialog: !this.state.showTransactionDialog})
     }
+
+    //shouldComponentUpdate(nextProps, nextState) {
+    //
+    //    return true;
+    //}
+
 
     getAllData() {
         console.log('getting all data');
@@ -96,19 +104,25 @@ class App extends Component {
                 //console.log(t.amount)
                 return true
             });
-            this.setState({categories: categories, transactions: transactions});
 
-            this.changeDate(this.state.currentDate);
+            this.setState({
+                categories: categories,
+                transactions: transactions,
+                displayCategories:  getCategoriesForTime(transactions, this.state.currentDate)
+            });
+
+            //this.changeDate(this.state.currentDate);
             //console.log('transactions and categories', transactions, categories);
-        })
+        }).catch((e) => {
+            console.log('error', e);
+            throw e;
+        });
     }
 
 
     componentDidMount() {
-        this.getAllData().then(() => {
-            console.log('changing date in mount');
-            this.changeDate();
-        });
+
+        this.getAllData();
 
         db.get('currentUser').then((user) => {
             //console.log('got user from local db', user);
@@ -164,46 +178,163 @@ class App extends Component {
 
 
 
-    updateCategoryColor = (categoryName, color) => {
+    updateCategoryColor = (category, color) => {
         //alert(`Color selected for category ${categoryName}: ${color}`);
 
         //this.state.transactions contains all transactions
         //this.state.categories contains all categories
-        const catName = categoryName.toLowerCase();
+        const catName = category.name.toLowerCase();
+        category.color = color;
         const {transactions, categories} = this.state;
         categories.map((c) => {
             if(catName === c.name.toLowerCase()) {
                 c.color = color;
-                db.put(c)
+                db.put(c).then(()=>{}).catch(()=>{})
             }
             return c;
         });
         transactions.map((t) => {
             if(t.category && t.category.name && catName === t.category.name.toLowerCase()) {
                 t.category['color'] = color;
-                db.put(t)
+                db.put(t).then(()=>{}).catch(()=>{})
             }
             return t;
         });
-        this.setState({transactions: transactions, categories: categories});
+        //if(this.state.currentCategory) {
+        //    this.getCategoryTransactions(this.state.currentCategory)
+        //}
+        //this.changeDate();
+        this.setState({transactions: transactions, categories: categories, currentCategory: category, displayCategories: getCategoriesForTime(transactions, this.state.currentDate)});
     }
 
 
 
-    signup = (data, action) => {
-        //console.log('signup', data, action);
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {resolve()}, 3000)
+    signup = (data) => {
+
+        console.log('signup in App', data);
+        //DO login to db from here
+        const username = data.email.toLowerCase();
+        const ajaxOpts = {
+            ajax: {
+                headers: {
+                    Authorization: 'Basic ' + window.btoa(username + ':' + data.password)
+                }
+            },
+            auth: {
+                username: username,
+                password: data.password
+            }
+        };
+
+        const user = {
+            _id: "org.couchdb.user:"+username,
+            password: data.password,
+            name: username,
+            roles: [],
+            type:'user',
+            fullname: data.name,
+            created_at: new Date(),
+            source: 'native',
+            platform: Platform.OS
+        }
+
+        const usersDB = new PouchDB('https://api.budgt.eu/_users', {skip_setup:true, ajax: {cache: false}});
+        var signupPromise = usersDB.put(user);
+
+        //const remoteDB = new PouchDB('https://api.budgt.eu/u-'+md5(username), {skip_setup:true, ajax: {cache: false}});
+
+        const promise = new Promise((resolve, reject) => {
+
+            signupPromise.then((r) => {
+
+                console.log('remote user signup ok', r);
+
+                //This creates the remote database with the current user as only authenticated user
+                fetch('https://api.budgt.eu/db.php', {
+                    method: 'GET'
+                }).then((r) => {
+                    console.log('Successfully created user database', r);
+
+                    //Then create local user with same data in "data" field
+                    //and loggedIn field to true
+                    const newUser = {
+                        _id: 'currentUser',
+                        loggedIn: true,
+                        fullname: data.name,
+                        email: data.email,
+                        username: username,
+                        auth: 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
+                    };
+                    db.get('currentUser').then((r) => {
+
+                        newUser._rev = r._rev;
+                        console.log('got local user on signup', r, newUser)
+                    })
+                        .catch(() => {})
+                        .then(() => {
+                            db.put(newUser).then((rr)=>{
+                                //login
+                                console.log('sucessfully created local user', rr);
+                                const userDatabase = 'https://api.budgt.eu/u-'+md5(user.name.toLowerCase());
+                                const remoteDB = new PouchDB(userDatabase, ajaxOpts);
+                                this.toggleSignupForm();
+                                this.setupSync(remoteDB);
+                                this.setState({user: newUser});
+                                resolve(newUser);
+                            }).catch((e) => {
+                                if(e.status === 409) {
+                                    reject({message: 'You already have an account on this machine, try logging in with it.', error: e, link:{"label": 'more info', url:"https://budgt.eu/"}});
+                                } else {
+                                    reject({message: 'Could not create your account, sorry. Contact us if this error persists', error: e});
+                                }
+
+                                //console.log('Could not create local user', e);
+                            })
+
+                        })
+
+
+
+                }).catch((e) => {
+                    reject({message: 'Could not create the remote database', error: e});
+                    //TODO Display alert with error message
+                    //console.log(e)
+                })
+            }).catch((e) => {
+                //console.log(e);
+                //TODO Display alert with error message
+                if(e.status === 409) {
+                    reject({message: 'This account already exists, try logging in', error: e});
+                } else {
+                    //console.log('remote db is','https://api.budgt.eu/u-'+md5(username));
+                    //console.log('Could not create your account, sorry. Are you online?', e)
+                    reject({message: 'Could not create your account, sorry. Are you online?', error: e});
+                }
+
+                console.log('SIGNUP FAILED', e);
+            });
         });
 
+        promise.then((u) => {
+            console.log('user signup ok', u)
+        }).catch((e) => {
+            console.log('user signup fail', e);
+        });
+
+        return promise;
 
     }
 
-    saveTransaction = (data, action) => {
-        //console.log('save transaction', data, action);
+    saveTransaction = (data) => {
+        console.log('save transaction', data);
         return new Promise((resolve, reject) => {
 
             //get categories and find one, or create new one
+            console.log(data.amount, Number(data.amount));
+            if(isNaN(Number(data.amount))) {
+                reject();
+                return;
+            }
 
             var cat = this.state.categories.filter((c) => {
                 return c.name.toLowerCase() == data.category.toLowerCase()
@@ -211,7 +342,8 @@ class App extends Component {
             var category = {
                 _id: 'c-'+guid(),
                 name: data.category,
-                color:'#CCCCCC',
+                color: getRandomColor(),
+                //TODO generate color
                 type:"category"
             }
             if(cat.length) {
@@ -231,9 +363,9 @@ class App extends Component {
                 //console.log('transaction saved', t);
                 db.put(category).then(() => {
 
-                    this.getAllData().then(()=>{resolve(t);})
+                    this.getAllData().then(()=>{resolve(t);}).catch((e) => {reject()})
                 }).catch(() => {
-                    this.getAllData()
+                    this.getAllData().then(()=>{resolve(t);}).catch((e) => {reject()})
                 });
 
 
@@ -251,8 +383,8 @@ class App extends Component {
         db.get('currentUser').then((u) => {
             u.loggedIn = false;
             u.auth = false;
-            db.put(u);
-        })
+            db.put(u).then(()=>{}).catch(()=>{});
+        }).catch((e) => {});
         this.setState({user: false});
     }
 
@@ -279,64 +411,112 @@ class App extends Component {
 
         const usersDB = new PouchDB('https://api.budgt.eu/_users', {skip_setup:true, ajax: {cache: false}});
         var loginPromise = usersDB.get('org.couchdb.user:'+username, ajaxOpts);
+        
+        const userDatabase = 'https://api.budgt.eu/u-'+md5(username.toLowerCase());
+        //console.log('remote user database', userDatabase);
+        const remoteDB = new PouchDB(userDatabase, ajaxOpts);
+        
+        const promise =  new Promise((resolve, reject) => {
+            loginPromise.then((user) => {
+                remoteDB.get('currentUser').then((remoteUser) => {
+                    console.log('got remote currentUser', remoteUser)
+                    remoteUser.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
+                    remoteUser.loggedIn =  true;
+                    console.log('trying to put user to local db', remoteUser);
 
-        loginPromise.then((user) => {
-            //console.log('logged in, got user', user);
-            //this.setState({user:user});
-            //Set up sync
-            //console.log('username', username);
-            const userDatabase = 'https://api.budgt.eu/u-'+md5(user.name.toLowerCase());
-            //console.log('remote user database', userDatabase);
-            const remoteDB = new PouchDB(userDatabase, ajaxOpts);
+                    db.put(remoteUser).then((newUser) => {
+                        resolve(remoteUser);
+                        console.log('user updated from ', remoteUser, 'to', newUser);
 
-            remoteDB.get('currentUser').then((u) => {
-                //console.log('got remote currentUser', u)
-                u.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
-                u.loggedIn =  true;
-                //console.log('setting this.state.user to', u);
-                this.setState({user: u});
-                db.put(u).then((newUser) => {
-                    this.toggleLoginForm();
-                    this.setupSync(remoteDB);
-                    //console.log('user updated from ', u, 'to', newUser);
+                    }).catch((putUserError) => {
+                        console.log('could not update local user from remote', putUserError, remoteUser);
 
-                }).catch((putUserError) => {
-                    db.get('currentUser').then((u) => {
-                        u.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
-                        u.loggedIn =  true;
-                        db.put(u);
-                        this.toggleLoginForm();
-                        this.setupSync(remoteDB);
-                    })
-                    //console.log('could not create local user', putUserError)
+                        db.get('currentUser').then((localu) => {
+                            console.log('got local user to update it', localu);
+                            localu.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
+                            localu.loggedIn =  true;
+                            localu.email = user.name,
+                            localu.username = user.name.toLowerCase(),
+                            localu.fullname = user.fullname,
+                            db.put(localu).then(()=>{
+                                resolve(localu);
+                            }).catch((e)=>{
+                                console.log('could not update local user with', localu, e);
+                                delete(remoteUser._rev)
+                                db.put(remoteUser).then(()=> {
+                                    console.log('could put local user without rev')
+                                    resolve(remoteUser);
+                                }).catch((e) => {
+                                    console.log('could NOT put local user without rev',e)
+                                    reject(e);
+                                });
+
+                            });
+
+                        }).catch((e) => {
+                            console.log('could not get local user', e);
+                            delete(remoteUser._rev);
+                            db.put(remoteUser).then(()=> {
+                                console.log('could put local user without rev')
+                                resolve(remoteUser);
+                            }).catch((e) => {
+                                console.log('could NOT put local user without rev',e)
+                                reject(e);
+                            });
+                            //reject(e);
+                        });
+                        //console.log('could not create local user', putUserError)
+                    });
+                }).catch((e) => {
+                    console.log('no remote current user', e)
+                    //No remote current user, create local
+                    const currentUser = {
+                        _id: 'currentUser',
+                        email: user.name,
+                        username: user.name.toLowerCase(),
+                        fullname: user.fullname,
+                        loggedIn:  true,
+                        auth: 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
+                    };
+                    
+
+                    //console.log('currentUser', currentUser);
+                    db.put(currentUser).then((newUser) => {
+                        resolve(currentUser);
+                        console.log('user cretaed from ', currentUser, 'to', newUser);
+
+                    }).catch((putUserError) => {
+                        console.log('could not create local user', currentUser, putUserError)
+                        db.get('currentUser').then((uu) => {
+                            currentUser._rev = uu._rev;
+
+                            console.log('trying to put local user once more', currentUser);
+
+                            db.put(currentUser).then(() => {
+                                console.log('Finally!!', currentUser);
+                                resolve(currentUser);
+
+                            }).catch((pue) => {
+                                console.log('Still could not create local user!!', currentUser, pue);
+                                reject(pue);
+                            });
+                        });
+                    });
                 });
             }).catch((e) => {
-                //console.log('no remote current user', e)
-                //No remote current user, create local
-                const currentUser = {
-                    _id: 'currentUser',
-                    email: user.name,
-                    username: user.name.toLowerCase(),
-                    fullname: user.fullname,
-                    loggedIn:  true,
-                    auth: 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
-                };
-
-                //console.log('currentUser', currentUser);
-                db.put(currentUser).then((newUser) => {
-                    this.toggleLoginForm();
-                    this.setupSync(remoteDB);
-                    this.setState({user: newUser});
-                    //console.log('user cretaed from ', currentUser, 'to', newUser);
-
-                }).catch((putUserError) => {
-                });
+                reject(e);
+                console.log('no user', e)
             });
-        }).catch((e) => {
-            //console.log('no user', e)
         });
+        
+        promise.then((user) => {
+            this.toggleLoginForm();
+            this.setupSync(remoteDB);
+            this.setState({user: user});
+        })
+        return promise
 
-        return loginPromise;
+
 
     }
 
@@ -353,7 +533,8 @@ class App extends Component {
             });
             sync.on('change', function (change) {
                 //console.log('change sync', change);
-                //This is inefficient, try and do something better.
+                //TODO This is inefficient, try and do something better.
+                console.log('getAllData called from sync event');
                 self.getAllData();
             }).on('error', function (err) {
                 //console.error('sync error', err);
@@ -365,7 +546,7 @@ class App extends Component {
 
     render() {
 
-        //console.log('render app', this.state);
+        console.log('Render App');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
 
         const logo = require('../images/logo.png');
@@ -383,7 +564,7 @@ class App extends Component {
                     <View style={{
                         backgroundColor: primary2Color,
                         height: 20,
-                        zIndex:45,
+                        //zIndex:45,
                         //elevation: 1,
                         //shadowColor: "#000",
                         //shadowOpacity: 0.5,
@@ -394,7 +575,6 @@ class App extends Component {
 
 
                     <Toolbar
-
                         leftElement={this.state.showDrawer ? 'close' : "menu"}
                         centerElement={title}
                         onLeftElementPress={this.toggleDrawer}
@@ -408,7 +588,16 @@ class App extends Component {
                         transactionsForCategory={this.state.transactionsForCategory}
                         open={this.state.categoryColumnOpen}
                         />
+                    {this.state.currentCategory.categories ? null: <Animated.View style={{backgroundColor:'transparent', position:'absolute', top:70, right:0, width:48, height:48, opacity: this.state.categoryColumnOpen ? 0: 1}}>
+                        <IconToggle onPress={()=>{this.setState({colorPickerOpen: !this.state.colorPickerOpen})}}><Icon name='color-lens' color={getTextColor(shadeColor(this.state.currentCategory.color, (this.state.transactionsForCategory&&this.state.transactionsForCategory.transactions&&this.state.transactionsForCategory.transactions.length > 1 ? -0.2 : 0)))} /></IconToggle>
+                    </Animated.View>}
+
                     <ActionButton onPress={this.toggleTransactionForm}/>
+                    <CategoryColorPicker
+                        open={this.state.colorPickerOpen}
+                        updateCategoryColor={this.updateCategoryColor}
+                        currentCategory={this.state.currentCategory}
+                        />
                     <NewDrawer
                         user={this.state.user}
                         show={this.state.showDrawer}
@@ -422,17 +611,17 @@ class App extends Component {
                         logout={this.logout}
                         />
 
-                    {(this.state.user === false) ? <AnimatedDialog
+                    {this.state.user ? <View/> : <AnimatedDialog
                         show={this.state.showLoginDialog}
                         toggle={this.toggleLoginForm}
                         inner={<LoginForm toggle={this.toggleLoginForm} show={this.state.showLoginDialog} login={this.login} />}
-                        /> : null}
+                        />}
 
-                    {(this.state.user === false) ? <AnimatedDialog
+                    {this.state.user ? <View/> : <AnimatedDialog
                         show={this.state.showSignupDialog}
                         toggle={this.toggleSignupForm}
                         inner={<SignupForm toggle={this.toggleSignupForm} show={this.state.showSignupDialog} action={this.signup} />}
-                        /> : null}
+                        />}
 
                     <AnimatedDialog
                         show={this.state.showTransactionDialog}
@@ -440,19 +629,7 @@ class App extends Component {
                         inner={<TransactionForm toggle={this.toggleTransactionForm} show={this.state.showTransactionDialog} action={this.saveTransaction} />}
                         />
 
-
-
-
-
                 </Container>
-
-
-
-
-
-
-
-
 
         )
     }
