@@ -12,7 +12,7 @@ const styles = StyleSheet.create({
         justifyContent:'center',
         alignItems: 'center',
         flex:1,
-        elevation: 5,
+        elevation: 7,
         position: 'absolute',
         top:70,
         left:0,
