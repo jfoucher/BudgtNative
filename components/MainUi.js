@@ -49,7 +49,7 @@ class MainUi extends Component {
 
 
     componentWillReceiveProps(newProps) {
-        console.log('componentWillReceiveProps mainUI', this.props, newProps, this.props===newProps);
+        //console.log('componentWillReceiveProps mainUI', this.props, newProps, this.props===newProps);
         if(this.props.currentCategory && newProps.currentCategory === false) {
             const shade = (this.props.displayCategories.categories.length === 1 || this.props.transactionsForCategory.transactions.length > 1) ? -0.2 : 0;
             const color = shadeColor(this.props.currentCategory.color, shade);
@@ -224,6 +224,10 @@ class MainUi extends Component {
 
                     <View key={c.name} style={{flex: percent, backgroundColor: c.color, flexDirection:'column', alignItems: 'stretch', justifyContent:'center'}}>
 
+                        <Animated.View style={{backgroundColor:'transparent', position:'absolute', top:0, right:0, width:48, height:48, opacity: this.props.open ? 0: 1}}>
+                            <IconToggle onPress={this.props.openColorPickerForCategory.bind(null, c)}><Icon name='color-lens' color={textColor} /></IconToggle>
+                        </Animated.View>
+
                         <Animated.Text
                             numberOfLines={1}
                             style={{
@@ -257,7 +261,7 @@ class MainUi extends Component {
 
             return (
 
-                <View key={t.name+''+t.date} style={{flex: (percent < 0.015 ? 0.015 : percent), backgroundColor: color, flexDirection:'column', alignItems: 'stretch', justifyContent:'center'}}>
+                <View key={t._id} style={{flex: (percent < 0.015 ? 0.015 : percent), backgroundColor: color, flexDirection:'column', alignItems: 'stretch', justifyContent:'center'}}>
                     <Animated.Text numberOfLines={1} style={{textAlign: 'center', padding:0, margin:0, lineHeight: (itemHeight < fontSize ? itemHeight : fontSize), fontSize: (itemHeight < fontSize ? this.state.categoryColumnWidth.interpolate({inputRange: [0.2, 1], outputRange: [itemHeight*0.75, 0]}) : this.state.categoryColumnWidth.interpolate({inputRange: [0.2, 1], outputRange: [fontSize*.9, 0]})), color: textColor}}>{t.name} {t.amount.toFixed(2)}</Animated.Text>
                     {dateText}
                 </View>

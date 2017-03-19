@@ -35,17 +35,24 @@ class CategoryColorPicker extends Component {
             colorPickerZIndex: -1,
             colorPickerOpacity: new Animated.Value(0),
             buttonOpacity: new Animated.Value(0),
+            currentCategory: false,
         }
     }
 
     componentWillReceiveProps(newProps) {
-        console.log('colorpicker will receive props', newProps);
+        //console.log('colorpicker will receive props', newProps.currentCategory);
         if(newProps.displayButton !== this.props.displayButton) {
             const nextVal = newProps.displayButton ? 0 : 1;
             Animated.timing(
                 this.state.buttonOpacity,
                 {toValue: nextVal}
             ).start();
+        }
+
+        if(this.props.open === false && newProps.open === false) {
+            this.setState({currentCategory: false});
+        } else {
+            this.setState({currentCategory: newProps.currentCategory});
         }
         if(newProps.open !== this.props.open) {
             this.toggleColorPicker()
@@ -55,9 +62,9 @@ class CategoryColorPicker extends Component {
 
 
     toggleColorPicker = () => {
-        console.log('toggle color picker', this.state.colorPickerZIndex);
         if(this.state.colorPickerZIndex === -1) { //color picker is hidden, show
             this.setState({colorPickerZIndex: 9});
+            this.props.toggle(true);
             Animated.timing(
                 this.state.colorPickerOpacity,
                 {toValue: 1}
@@ -67,8 +74,8 @@ class CategoryColorPicker extends Component {
                 this.state.colorPickerOpacity,
                 {toValue: 0}
             ).start(() => {
-                    console.log('color picker opactity set to 0, toggle zIndex');
-                    this.setState({colorPickerZIndex: -1})
+                    this.props.toggle(false);
+                    this.setState({currentCategory: false, colorPickerZIndex: -1});
                 });
         }
 
@@ -76,14 +83,22 @@ class CategoryColorPicker extends Component {
 
 
     render() {
-        console.log('render ColorPicker', this.state.colorPickerZIndex);
+        console.log('render ColorPicker');
+
+        if(!this.state.currentCategory) {
+            return null;
+        }
+        var zIndex = {}
+        if(Platform.OS==='ios') {
+            zIndex = {zIndex: this.state.colorPickerZIndex}
+        }
         return (
 
-                <Animated.View style={
+        <Animated.View style={
                     [styles.container,
                     {
 
-                    zIndex: this.state.colorPickerZIndex,
+
                     //elevation: 2,
                     opacity: this.state.colorPickerOpacity,
 
@@ -92,11 +107,12 @@ class CategoryColorPicker extends Component {
                                 translateX: Platform.OS==='ios' ? 0 : this.state.colorPickerOpacity.interpolate({inputRange: [0,0.0001, 1], outputRange: [-3000,-560, 0]})
                             }
                         ]
-                    }]}>
+                    }, zIndex]}>
 
                     <TriangleColorPicker
-                        oldColor={this.props.currentCategory.color}
-                        onColorSelected={(color)=>{this.props.updateCategoryColor.call(null, this.props.currentCategory, color);this.toggleColorPicker();}}
+                        defaultColor={this.state.currentCategory.color}
+                        oldColor={this.state.currentCategory.color}
+                        onColorSelected={(color)=>{this.props.updateCategoryColor.call(null, this.state.currentCategory, color);this.toggleColorPicker();}}
                         onOldColorSelected={()=>{this.toggleColorPicker()}}
                         style={{flex: 1}}
                         />

@@ -37,7 +37,6 @@ export const getTextColor = (backgroundColor) => {
     if(!backgroundColor) {
         return "#ffffff";
     }
-    console.log('getTextColor', backgroundColor);
 
     const m = backgroundColor.match(/^#([0-9a-f]{6})$/i)[1];
     var brightness = 0;
