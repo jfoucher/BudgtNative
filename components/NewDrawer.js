@@ -13,7 +13,7 @@ import {getAvailableMonths, getNumberOfTransactionsByMonth} from '../data/dataHa
 const styles = StyleSheet.create({
     drawer: {
         flex: 1,
-        elevation: 4,
+        elevation: 6,
         //width: 260,
         //backgroundColor:'transparent',
         //shadowColor: "#000",
