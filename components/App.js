@@ -72,7 +72,6 @@ class App extends Component {
         this.setState({showSignupDialog: !this.state.showSignupDialog})
     }
     toggleTransactionForm = () => {
-        console.log('show transaction form');
         this.setState({showTransactionDialog: !this.state.showTransactionDialog})
     }
 
@@ -83,7 +82,6 @@ class App extends Component {
 
 
     getAllData() {
-        console.log('getting all data');
         var transactions = [];
         var categories = [];
 
@@ -97,15 +95,6 @@ class App extends Component {
                 return (r.doc.type && r.doc.type === 'category')
             }).map((r) => {return r.doc});
 
-            transactions.filter((t) => {
-                if(typeof t.category === 'string') {
-                    //console.log('removing transaction', t)
-                    db.remove(t);
-                }
-                //console.log(t.amount)
-                return true
-            });
-
             this.setState({
                 categories: categories,
                 transactions: transactions,
@@ -117,6 +106,32 @@ class App extends Component {
         }).catch((e) => {
             console.log('error', e);
             throw e;
+        });
+    }
+
+
+    //Fix data with current categories
+
+    correctDatabase = () => {
+        return db.allDocs({include_docs: true}).then((d) => {
+            const transactions = d.rows.filter((r) => {
+                return (r.doc.type && r.doc.type === 'transaction');
+
+            }).map((r) => {return r.doc});
+            const categories = d.rows.filter((r) => {
+                return (r.doc.type && r.doc.type === 'category')
+            }).map((r) => {return r.doc});
+
+            const newTransactions = transactions.map((t) => {
+                const newCat = categories.find((c) => {
+                    return c.name.trim().toLowerCase() === t.category.name.trim().toLowerCase()
+                });
+                t.category = newCat;
+                console.log('new transaction is', t);
+                db.put(t);
+
+            });
+
         });
     }
 
@@ -145,7 +160,7 @@ class App extends Component {
     }
 
     changeDate = (newDate = moment().format('YYYYMM')) => {
-        console.log('change date from ', this.state.currentDate,' to ', newDate);
+        //console.log('change date from ', this.state.currentDate,' to ', newDate);
         if(this.state.currentDate !== newDate) {
             this.setState({categoryColumnOpen: true});
         }
@@ -158,19 +173,21 @@ class App extends Component {
 
     getCategoryTransactions = (category) => {
 
-        console.log('getCategoryTransactions', category);
+        //console.log('getCategoryTransactions', category);
         if(category.name !== this.state.currentCategory.name) {
             const displayTransactions = getTransactionsForCategoryAndTime(this.state.transactions, category, this.state.currentDate);
             //console.log('change category, transactions are ', displayTransactions);
             this.setState({
                 transactionsForCategory: displayTransactions,
                 currentCategory: category,
+                colorPickerCategory: category,
                 categoryColumnOpen: false
             });
         } else {
             this.setState({
                 transactionsForCategory: [],
                 currentCategory: false,
+                colorPickerCategory: false,
                 categoryColumnOpen: true
 
             });
@@ -206,16 +223,23 @@ class App extends Component {
         //}
         //this.changeDate();
         if(category.name == this.state.currentCategory.name) {
-            this.setState({currentCategory: category});
+            this.setState({
+                currentCategory: category,
+                transactionsForCategory: getTransactionsForCategoryAndTime(transactions, category, this.state.currentDate)});
+
         }
-        this.setState({transactions: transactions, categories: categories, displayCategories: getCategoriesForTime(transactions, this.state.currentDate)});
+        this.setState({
+            transactions: transactions,
+            categories: categories,
+            displayCategories: getCategoriesForTime(transactions, this.state.currentDate),
+            });
     }
 
 
 
     signup = (data) => {
 
-        console.log('signup in App', data);
+        //console.log('signup in App', data);
         //DO login to db from here
         const username = data.email.toLowerCase();
         const ajaxOpts = {
@@ -251,13 +275,13 @@ class App extends Component {
 
             signupPromise.then((r) => {
 
-                console.log('remote user signup ok', r);
+                //console.log('remote user signup ok', r);
 
                 //This creates the remote database with the current user as only authenticated user
                 fetch('https://api.budgt.eu/db.php', {
                     method: 'GET'
                 }).then((r) => {
-                    console.log('Successfully created user database', r);
+                    //console.log('Successfully created user database', r);
 
                     //Then create local user with same data in "data" field
                     //and loggedIn field to true
@@ -272,13 +296,13 @@ class App extends Component {
                     db.get('currentUser').then((r) => {
 
                         newUser._rev = r._rev;
-                        console.log('got local user on signup', r, newUser)
+                        //console.log('got local user on signup', r, newUser)
                     })
                         .catch(() => {})
                         .then(() => {
                             db.put(newUser).then((rr)=>{
                                 //login
-                                console.log('sucessfully created local user', rr);
+                                //console.log('sucessfully created local user', rr);
                                 const userDatabase = 'https://api.budgt.eu/u-'+md5(user.name.toLowerCase());
                                 const remoteDB = new PouchDB(userDatabase, ajaxOpts);
                                 this.toggleSignupForm();
@@ -330,28 +354,29 @@ class App extends Component {
     }
 
     saveTransaction = (data) => {
-        console.log('save transaction', data);
+        //console.log('save transaction', data);
         return new Promise((resolve, reject) => {
 
             //get categories and find one, or create new one
-            console.log(data.amount, Number(data.amount));
+            //console.log(data.amount, Number(data.amount));
             if(isNaN(Number(data.amount))) {
                 reject();
                 return;
             }
 
             var cat = this.state.categories.filter((c) => {
-                return c.name.toLowerCase() == data.category.toLowerCase()
+                return c.name.toLowerCase().trim() == data.category.toLowerCase().trim()
             });
             var category = {
                 _id: 'c-'+guid(),
-                name: data.category,
+                name: data.category.trim(),
                 color: getRandomColor(),
-                //TODO generate color
                 type:"category"
             }
             if(cat.length) {
                 category = cat[0];
+            } else {
+                db.put(category);
             }
 
 
@@ -364,14 +389,8 @@ class App extends Component {
                 date: new Date()
             }).then((t) => {
                 this.toggleTransactionForm();
-                //console.log('transaction saved', t);
-                db.put(category).then(() => {
 
-                    this.getAllData().then(()=>{resolve(t);}).catch((e) => {reject()})
-                }).catch(() => {
-                    this.getAllData().then(()=>{resolve(t);}).catch((e) => {reject()})
-                });
-
+                this.getAllData().then(()=>{resolve(t);}).catch((e) => {reject()})
 
             }).catch((e) => {
                 //console.log('transaction errot', e)
@@ -423,20 +442,20 @@ class App extends Component {
         const promise =  new Promise((resolve, reject) => {
             loginPromise.then((user) => {
                 remoteDB.get('currentUser').then((remoteUser) => {
-                    console.log('got remote currentUser', remoteUser)
+                    //console.log('got remote currentUser', remoteUser)
                     remoteUser.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
                     remoteUser.loggedIn =  true;
-                    console.log('trying to put user to local db', remoteUser);
+                    //console.log('trying to put user to local db', remoteUser);
 
                     db.put(remoteUser).then((newUser) => {
                         resolve(remoteUser);
-                        console.log('user updated from ', remoteUser, 'to', newUser);
+                        //console.log('user updated from ', remoteUser, 'to', newUser);
 
                     }).catch((putUserError) => {
-                        console.log('could not update local user from remote', putUserError, remoteUser);
+                        //console.log('could not update local user from remote', putUserError, remoteUser);
 
                         db.get('currentUser').then((localu) => {
-                            console.log('got local user to update it', localu);
+                            //console.log('got local user to update it', localu);
                             localu.auth = 'Basic ' + window.btoa(username + ':' + data.password) //TODO change this ASAP
                             localu.loggedIn =  true;
                             localu.email = user.name,
@@ -445,26 +464,26 @@ class App extends Component {
                             db.put(localu).then(()=>{
                                 resolve(localu);
                             }).catch((e)=>{
-                                console.log('could not update local user with', localu, e);
+                                //console.log('could not update local user with', localu, e);
                                 delete(remoteUser._rev)
                                 db.put(remoteUser).then(()=> {
-                                    console.log('could put local user without rev')
+                                    //console.log('could put local user without rev')
                                     resolve(remoteUser);
                                 }).catch((e) => {
-                                    console.log('could NOT put local user without rev',e)
+                                    //console.log('could NOT put local user without rev',e)
                                     reject(e);
                                 });
 
                             });
 
                         }).catch((e) => {
-                            console.log('could not get local user', e);
+                            //console.log('could not get local user', e);
                             delete(remoteUser._rev);
                             db.put(remoteUser).then(()=> {
-                                console.log('could put local user without rev')
+                                //console.log('could put local user without rev')
                                 resolve(remoteUser);
                             }).catch((e) => {
-                                console.log('could NOT put local user without rev',e)
+                                //console.log('could NOT put local user without rev',e)
                                 reject(e);
                             });
                             //reject(e);
@@ -472,7 +491,7 @@ class App extends Component {
                         //console.log('could not create local user', putUserError)
                     });
                 }).catch((e) => {
-                    console.log('no remote current user', e)
+                    //console.log('no remote current user', e)
                     //No remote current user, create local
                     const currentUser = {
                         _id: 'currentUser',
@@ -487,21 +506,21 @@ class App extends Component {
                     //console.log('currentUser', currentUser);
                     db.put(currentUser).then((newUser) => {
                         resolve(currentUser);
-                        console.log('user cretaed from ', currentUser, 'to', newUser);
+                        //console.log('user cretaed from ', currentUser, 'to', newUser);
 
                     }).catch((putUserError) => {
-                        console.log('could not create local user', currentUser, putUserError)
+                        //console.log('could not create local user', currentUser, putUserError)
                         db.get('currentUser').then((uu) => {
                             currentUser._rev = uu._rev;
 
-                            console.log('trying to put local user once more', currentUser);
+                            //console.log('trying to put local user once more', currentUser);
 
                             db.put(currentUser).then(() => {
-                                console.log('Finally!!', currentUser);
+                                //console.log('Finally!!', currentUser);
                                 resolve(currentUser);
 
                             }).catch((pue) => {
-                                console.log('Still could not create local user!!', currentUser, pue);
+                                //console.log('Still could not create local user!!', currentUser, pue);
                                 reject(pue);
                             });
                         });
@@ -538,7 +557,7 @@ class App extends Component {
             sync.on('change', function (change) {
                 //console.log('change sync', change);
                 //TODO This is inefficient, try and do something better.
-                console.log('getAllData called from sync event');
+                //console.log('getAllData called from sync event');
                 self.getAllData();
             }).on('error', function (err) {
                 //console.error('sync error', err);
@@ -550,7 +569,7 @@ class App extends Component {
 
     render() {
 
-        console.log('Render App', this.state.displayCategories.categories);
+        console.log('Render App');
         const { primaryColor, primary2Color } = this.context.uiTheme.palette;
 
         const logo = require('../images/logo.png');
@@ -591,6 +610,7 @@ class App extends Component {
                         currentCategory={this.state.currentCategory}
                         transactionsForCategory={this.state.transactionsForCategory}
                         open={this.state.categoryColumnOpen}
+                        openColorPickerForCategory={(category)=>{this.setState({colorPickerCategory: category, colorPickerOpen: !this.state.colorPickerOpen})}}
                         />
                     {this.state.currentCategory.categories ? null: <Animated.View style={{backgroundColor:'transparent', position:'absolute', top:70, right:0, width:48, height:48, opacity: this.state.categoryColumnOpen ? 0: 1}}>
                         <IconToggle onPress={()=>{this.setState({colorPickerCategory: this.state.currentCategory,colorPickerOpen: !this.state.colorPickerOpen})}}><Icon name='color-lens' color={getTextColor(shadeColor(this.state.currentCategory.color, ((this.state.transactionsForCategory&&this.state.transactionsForCategory.transactions&&this.state.transactionsForCategory.transactions.length > 1) || this.state.displayCategories.categories.length === 1 ? -0.2 : 0)))} /></IconToggle>
@@ -601,6 +621,7 @@ class App extends Component {
                         open={this.state.colorPickerOpen}
                         updateCategoryColor={this.updateCategoryColor}
                         currentCategory={this.state.colorPickerCategory}
+                        toggle={(open) => {this.setState({colorPickerOpen: open})}}
                         />
                     <NewDrawer
                         user={this.state.user}
@@ -613,6 +634,7 @@ class App extends Component {
                         changeDate={this.changeDate}
                         currentDate={this.state.currentDate}
                         logout={this.logout}
+                        correctDatabase = {this.correctDatabase}
                         />
 
                     {this.state.user ? <View/> : <AnimatedDialog
